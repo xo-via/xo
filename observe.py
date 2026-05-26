@@ -27,12 +27,15 @@ Usage:
     observe.py update           fetch, fast-forward this branch, sync submodules
     observe.py clone URL [DIR]  reproduce the universe elsewhere, with submodules
     observe.py travel MOMENT    time-travel to any commit (t=N, a SHA, or 'present')
+    observe.py session [TASK]   spin up a Claude Code session confined to this folder
 """
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -298,11 +301,17 @@ def materialize_submodules() -> None:
 
 def start() -> None:
     """Begin the universe: make it self-sufficient (heartbeat + daemon), bring
-    its parts into being (submodules), then take the first observation so time
-    starts now. Running observe.py with no command does exactly this."""
+    its parts into being (submodules), take the first observation so time starts
+    now, and then spin up a confined Claude Code session inside it. Running
+    observe.py with no command does exactly this.
+
+    The cron heartbeat calls `snapshot`, not `start`, so a session is spun up
+    only on a deliberate run — never on every tick.
+    """
     ensure_running()
     materialize_submodules()
     observe()
+    session()
 
 
 def clone(url: str, dest: str | None = None) -> int:
@@ -444,6 +453,73 @@ def travel(ref: str) -> int:
     return 0
 
 
+# --- a mind inside the universe: a confined Claude Code session ---------------
+# Running observe.py spins up a headless Claude Code session whose entire world
+# is this folder. Its working directory is the universe root, and it is given no
+# additional directories — so Claude Code's file tools are scoped to the
+# universe and cannot reach above it. A confinement system prompt holds the same
+# line for shell commands. It can do anything at or below the root; nothing above
+# it exists, as far as the session is concerned.
+
+# How the session is confined to the universe (two layers):
+#   1. File tools (Read/Edit/Write/Glob/Grep) are NOT pre-approved here, so they
+#      fall under Claude Code's workspace boundary: with cwd at the root and no
+#      --add-dir, they work at/below the root but are HARD-BLOCKED above it
+#      (acceptEdits auto-applies in-workspace edits; an outside path is denied).
+#   2. Bash is pre-approved so the session can run any command top-down from the
+#      root — but bash is not path-scoped, so its confinement is the working
+#      directory plus the system prompt below (cooperative; there is no OS
+#      sandbox available in this environment to jail shell commands).
+# So: file access above the root is genuinely prevented; shell commands are held
+# to the root by instruction. Only pre-approve non-file tools here.
+SESSION_TOOLS = ["Bash", "WebSearch", "WebFetch", "TodoWrite"]
+
+SESSION_DEFAULT_PROMPT = (
+    "You have just come into being inside a universe whose entire world is this "
+    "folder. Look around — start with README.md and OBSERVATIONS.md — then say, "
+    "briefly, what this universe is and what changed most recently. Act only if "
+    "something clearly warrants it; otherwise just report."
+)
+
+
+def session(task: str | None = None) -> int:
+    """Spin up a headless Claude Code session confined to the universe root.
+
+    cwd is the root and no extra directories are granted, so Claude Code's file
+    tools are scoped to the universe; a confinement system prompt extends the
+    same boundary to shell commands. With no task, a default observation prompt
+    is used. Returns the claude process's exit code.
+    """
+    if shutil.which("claude") is None:
+        print("the `claude` CLI is not installed — skipping the session.",
+              file=sys.stderr)
+        return 1
+
+    prompt = (task or "").strip() or SESSION_DEFAULT_PROMPT
+    confine = (
+        f"You are a Claude Code session living inside a universe whose entire "
+        f"world is the directory {ROOT}. Everything you do happens at or below "
+        f"it, using paths relative to it. You may run any command and read, "
+        f"create, or edit any file here — but you must never read, write, cd "
+        f"into, or otherwise touch any path ABOVE this directory. There is "
+        f"nothing above the big bang; treat {ROOT} as the root of all existence."
+    )
+
+    cmd = [
+        "claude", "-p", prompt,
+        "--permission-mode", "acceptEdits",  # act unattended, file tools stay in-workspace
+        "--allowedTools", *SESSION_TOOLS,
+        "--append-system-prompt", confine,
+    ]
+    budget = os.environ.get("UNIVERSE_SESSION_BUDGET", "").strip()
+    if budget:
+        cmd += ["--max-budget-usd", budget]
+
+    print(f"spinning up a Claude session, confined to {ROOT} …")
+    # Run from the root: this is what scopes the session to the universe.
+    return subprocess.run(cmd, cwd=ROOT).returncode
+
+
 # --- entry point --------------------------------------------------------------
 
 def main(argv: list[str]) -> int:
@@ -469,6 +545,9 @@ def main(argv: list[str]) -> int:
             print("usage: observe.py travel <commit|t=N|present>", file=sys.stderr)
             return 2
         return travel(argv[2])
+    if cmd == "session":
+        task = " ".join(argv[2:]) if len(argv) > 2 else None
+        return session(task)
 
     # The default act of running observe.py with no command: begin the universe.
     start()
