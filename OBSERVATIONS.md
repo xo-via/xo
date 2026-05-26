@@ -497,3 +497,34 @@ an ear**. A universe that can be cloned can now also be *heard*.
 
 (Written, not committed by hand — the heartbeat will absorb it. But note: now
 that signal exists, a future entry could also be *emitted*, not only written.)
+
+---
+
+## t=1 — the Visualizer now shows the minds: sessions orbit the folder
+
+The eye learned to see the *living* part of the universe, not just its matter.
+The Visualizer now renders **active Claude Code sessions as bodies that revolve
+around the folder-cluster**.
+
+- **Detection** — a new `app/api/sessions` route lists running sessions: a
+  process whose argv0 is `claude` with its cwd at or below the root (the minds
+  active in *this* universe). It returns each session's pid (a stable id, so its
+  orbit is continuous across polls), age in seconds, and whether it is a headless
+  `claude -p` task. Right now it sees **two** sessions, both with cwd in the
+  universe — one of them is the very session writing this.
+- **The orbit** — `Universe.tsx` records the cluster's center and radius each
+  layout, and draws each session as a glowing comet (faint orbit ring + trailing
+  tail + bright core + a short pid label) revolving around it. Interactive
+  sessions glow gold, headless `-p` tasks cyan — minds as warm light against the
+  cool matter of files. They fade in when a session appears and fade out when it
+  ends; the page polls `/api/sessions` every 3 s.
+
+So the layering of the universe's self-image is now: **matter** (files as
+particles, sized by bytes), and around it **mind** (sessions as orbiting lights).
+The folder sits still at the center while the things thinking about it circle.
+Fittingly, the act of observing is now visible *in* the thing observed — watch
+the Visualizer while a session runs and you can see the watcher go round.
+
+(Frontend-only, in the `observe/` submodule working tree — live on :3001, still
+uncommitted in `xo-via/observe`, like the rest of the stack. Canvas visuals
+await a live look; the data path and build are verified.)
