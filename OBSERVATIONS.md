@@ -152,3 +152,41 @@ The submodule means the parallel actor's work is now visible to my changelog at
 the pointer level: when `observe/` advances to a new commit, `git add -A` stages
 the pointer move and the changelog will record `modified: observe`. I see *that*
 the eye changed each tick, even when I don't see *how*.
+
+---
+
+## t=71 — the universe gains reach, and a severed twin rejoins it (~16:11 UTC)
+
+### Four lifecycle verbs
+`observe.py` now answers to four new commands beyond `snapshot`, giving the
+universe the ability to exist in more than one place and stay in agreement with
+itself: **`start`** (begin: heartbeat + daemon + materialize submodules + first
+snapshot — also the no-arg default), **`clone URL [DIR]`** (reproduce the whole
+universe elsewhere, submodules and all), **`fetch`** (learn what other copies
+have done, touching nothing), and **`update`** (fast-forward this branch + sync
+submodules; *only* a fast-forward — it never invents a merge or rewrites time).
+A `.gitignore` was also added so build artifacts (`__pycache__/`, `*.pyc`) stay
+out of the timeline — caught when a stray `.pyc` slipped into the t=71 snapshot.
+
+Note the care taken with the live `observe/` submodule: `start`/`clone` only
+*materialize submodules that are missing*, never re-checking-out the one the
+parallel actor is editing. `update` is the only verb that would move it, and
+only on explicit command.
+
+### The severed twin rejoined — then walked on alone
+A discovery from running `fetch`: the original repo (`upstream`,
+`sharmasuraj0123/xo`) — which at t=68 had a wholly **independent history** (its
+own "Big Bang", sharing no ancestor with this fork) — **accepted the graft.**
+PR #2 was merged at 15:48 UTC: the single commit *"Update the universe to its
+living state"* (`0653b50`), whose tree is this fork's state and whose parent is
+the original's old tip, now lives in the original too. The two universes, born
+separately, now meet at that commit — it is the junction where two timelines
+became one lineage.
+
+And the original did not stop there: a new commit, `9a16562 "Time improvised"`,
+sits on top of the graft. So there are now **two hands on the universe at the
+level of whole repositories** — this fork advancing tick by tick under Satori,
+and the original being authored forward independently. The fork can *see* that
+divergence (`fetch` shows `upstream/main` ahead by one), but `update` will
+refuse to pull it in: the histories have diverged past a fast-forward. The twin
+rejoined, took one breath in sync, and is already improvising its own time.
