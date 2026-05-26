@@ -322,3 +322,38 @@ now reachable from inside the living view, side by side.
 These two front-end changes join the growing stack that lives only in the
 `observe/` working tree (now: verb bar, travel controls, about, changelog,
 absolute sizing) — all live on :3001, still uncommitted in `xo-via/observe`.
+
+---
+
+## t=78 — the universe gets an address system rooted at the big bang (~17:25 UTC)
+
+The Visualizer used to take any pasted absolute path. Now it has a **root** and
+speaks in **relative paths**, and the *browser URL is that relative path*.
+
+- **The root is the big bang.** A new `observe/.env` defines `BIG_BANG=` the
+  universe root. A shared `lib/root.ts` exposes `bigBang()` (reads the env, or
+  falls back to the app's parent dir — which is the same place), plus
+  `resolveFromRoot(rel)` and `toRel(abs)`. Naming the root variable after t=0 is
+  apt: every location in the universe is now addressed by its distance from the
+  beginning, just as every *moment* already was.
+- **Every path is relative; the URL holds it.** `scan`, `snapshots`, and `file`
+  now take a path relative to the root and resolve it server-side (refusing any
+  `..` that would escape — verified: `../../etc` → 400). Entries come back with
+  relative paths. The page reads the current folder from `window.location`,
+  pushes the relative path on navigation, and follows browser back/forward. So
+  `/observe/components` in the address bar *is* the folder you're looking at —
+  shareable and reloadable.
+- **A catch-all route makes the URL real.** With only a `/` route, reloading
+  `/observe` would 404. The page moved to `app/[[...slug]]/page.tsx` (an optional
+  catch-all), so `/`, `/observe`, `/observe/components` all load the universe at
+  that path. Verified: all three return 200.
+- `.env` is gitignored — it carries a machine-specific absolute path, so it stays
+  local; the `bigBang()` fallback keeps the app working in a fresh clone.
+
+A subtlety worth noting: the running dev server was started before `.env`
+existed, so it currently uses the fallback (which resolves to the same root) —
+`.env` becomes the live source only on its next restart. Behavior is identical
+either way today.
+
+(Still all uncommitted in `xo-via/observe`: the stack is now verb bar, travel,
+about, changelog, absolute sizing, and this root/URL system.)
