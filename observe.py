@@ -26,11 +26,13 @@ Usage:
     observe.py fetch            fetch all remotes (+ submodule history); changes nothing
     observe.py update           fetch, fast-forward this branch, sync submodules
     observe.py clone URL [DIR]  reproduce the universe elsewhere, with submodules
+    observe.py travel MOMENT    time-travel to any commit (t=N, a SHA, or 'present')
 """
 from __future__ import annotations
 
 import datetime
 import os
+import re
 import subprocess
 import sys
 import time
@@ -157,7 +159,19 @@ def snapshot() -> str:
     empty — the git log becomes a literal, tick-by-tick timeline of existence.
     When something did change, record it in the changelog before committing, so
     the snapshot carries its own description. Returns the commit message.
+
+    While the universe is time-traveling (HEAD detached at some past commit),
+    time *freezes*: no snapshot is taken, so the heartbeat can never commit onto
+    a detached HEAD or overwrite a visited past. Return with `travel present`.
     """
+    if is_detached():
+        head = git("rev-parse", "--short", "HEAD").stdout.strip()
+        message = (f"time is frozen — the universe is visiting {tick_of('HEAD')} "
+                   f"({head}); no snapshot taken. run `observe.py travel present` "
+                   f"to return to the present.")
+        print(message)
+        return message
+
     tick = current_tick()
     git("add", "-A", check=True)
 
@@ -343,6 +357,93 @@ def update() -> int:
     return 0
 
 
+# --- time travel: visit any commit --------------------------------------------
+# The git log is the universe's literal timeline, so to time-travel is simply to
+# check out another commit. Travel fetches first (so even moments that exist
+# only on a remote are reachable), then moves the working tree there. While away
+# from the present, time freezes (snapshot() refuses) so the heartbeat cannot
+# write over history. `travel present` returns to the tip of the home branch.
+
+_PRESENT = {"present", "now", "head", "tip", "today"}
+
+
+def is_detached() -> bool:
+    """True when HEAD points at a commit directly — i.e. we are time-traveling,
+    not sitting on a branch in the present."""
+    return git("symbolic-ref", "-q", "HEAD").returncode != 0
+
+
+def home_branch() -> str:
+    """The branch the present lives on (origin's default, else 'main')."""
+    out = git("rev-parse", "--abbrev-ref", "origin/HEAD")
+    if out.returncode == 0 and "/" in out.stdout:
+        return out.stdout.strip().split("/", 1)[1]
+    return "main"
+
+
+def tick_of(rev: str) -> str:
+    """The tick a commit belongs to, read from its 't=N: …' message; falls back
+    to a short SHA when the message has no tick stamp."""
+    out = git("log", "-1", "--format=%s", rev)
+    m = re.match(r"t=(\d+):", out.stdout.strip())
+    if m:
+        return f"t={m.group(1)}"
+    sha = git("rev-parse", "--short", rev)
+    return sha.stdout.strip() or rev
+
+
+def resolve_moment(ref: str) -> str | None:
+    """Turn a user's idea of a moment into a commit SHA.
+
+    Accepts a tick (`t=42` or just `42`), the present (`present`/`now`/`head`),
+    or any git revision (SHA, tag, branch). Returns None if it names no commit.
+    """
+    ref = ref.strip()
+    if ref.lower() in _PRESENT:
+        return home_branch()
+    m = re.fullmatch(r"t=?(\d+)", ref, re.IGNORECASE)
+    if m:
+        # A tick may have several commits (snapshot + time passes); the latest
+        # one is that tick's final state.
+        out = git("log", "-1", "--format=%H", f"--grep=^t={m.group(1)}:")
+        return out.stdout.strip() or None
+    out = git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    return out.stdout.strip() or None
+
+
+def travel(ref: str) -> int:
+    """Time-travel: move the universe to any commit. `travel present` (or
+    now/head) returns to the tip of the home branch, where time resumes."""
+    if fetch() != 0:
+        print("(fetch failed — traveling within local history only)", file=sys.stderr)
+
+    going_home = ref.strip().lower() in _PRESENT
+    target = resolve_moment(ref)
+    if not target:
+        print(f"no such moment: {ref!r} — give a tick (t=42), a SHA, or 'present'.",
+              file=sys.stderr)
+        return 1
+
+    if going_home:
+        branch = home_branch()
+        back = git("checkout", branch)
+        if back.returncode != 0:
+            print(f"could not return to the present:\n{back.stderr}", file=sys.stderr)
+            return 1
+        git("pull", "--ff-only", "origin", branch)  # best effort
+        print(f"returned to the present — {branch} at {tick_of('HEAD')}. time resumes.")
+        return 0
+
+    go = git("checkout", "--detach", target)
+    if go.returncode != 0:
+        print(f"could not travel (uncommitted changes in the present?):\n{go.stderr}",
+              file=sys.stderr)
+        return 1
+    print(f"traveled to {tick_of(target)} ({target[:8]}). time is frozen here — "
+          f"run `observe.py travel present` to return.")
+    return 0
+
+
 # --- entry point --------------------------------------------------------------
 
 def main(argv: list[str]) -> int:
@@ -363,6 +464,11 @@ def main(argv: list[str]) -> int:
             print("usage: observe.py clone <url> [dest]", file=sys.stderr)
             return 2
         return clone(argv[2], argv[3] if len(argv) > 3 else None)
+    if cmd == "travel":
+        if len(argv) < 3:
+            print("usage: observe.py travel <commit|t=N|present>", file=sys.stderr)
+            return 2
+        return travel(argv[2])
 
     # The default act of running observe.py with no command: begin the universe.
     start()
