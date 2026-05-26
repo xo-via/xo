@@ -3,4 +3,4 @@
 # Change one and the universe behaves differently from that tick onward.
 
 # How long one tick lasts, in seconds. 600 = 10 minutes.
-SNAPSHOT_DURATION_SECONDS=600
+SNAPSHOT_DURATION_SECONDS=60000
