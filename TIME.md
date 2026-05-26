@@ -24,11 +24,14 @@ Time is computed from the distance to the beginning, not counted by hand.
 
 ## The mechanism
 
-[`tick.sh`](./tick.sh) is one tick. Run it to advance time once:
+Time is observed by [`observe.py`](./observe.py). One snapshot — one tick — is
+the work of its `snapshot()` function. Take one by hand:
 
 ```sh
-./tick.sh
+python3 observe.py snapshot
 ```
 
-A cron job runs it once every ten minutes, so the universe advances on its own
-(see `crontab -l`).
+A cron job calls `observe.py snapshot` once every ten minutes, so the universe
+advances on its own (see `crontab -l`). Running `python3 observe.py` with no
+arguments installs that heartbeat, starts the daemon, and takes a first
+snapshot — so to begin the universe, that one command is all you need.
