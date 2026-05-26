@@ -290,3 +290,35 @@ The hazard I'd written up in the abstract last entry happened for real, and the
 design met it. The deep past *is* foreign country — and the universe can come back
 from it. (App changes still live only in the `observe/` working tree on :3001,
 uncommitted in `xo-via/observe`.)
+
+---
+
+## t=77 — particles tell the truth about size; a second window opens (~17:10 UTC)
+
+### Size on disk is now legible at a glance
+The Visualizer drew particles on a **logarithmic** scale with folders forced
+larger than files — so a 1 KB file and a 1 MB file looked nearly the same, and
+"size" was decorative. That changed: a particle's **area is now proportional to
+its bytes on disk**, on an absolute scale (`AREA_PER_KB` px² per KB), applied
+uniformly to files *and* folders. A 100 KB entry draws with 100× the area of a
+1 KB one — the literal request. The old `d3.pack` was the obstacle: it
+normalizes radii to fit a box, destroying any absolute scale, so I swapped it for
+`packSiblings` (positions circles without resizing them) centered by
+`packEnclose`. The scale stays truly absolute until a cluster would overflow the
+viewport, at which point a single uniform shrink keeps every ratio intact.
+
+A consequence worth naming: with a *linear* scale, real folders have brutal
+dynamic range (a 50-byte file beside a node_modules of hundreds of MB becomes an
+invisible speck). The old log scale hid that; the new one shows it. Honesty about
+size means honesty about how lopsided a folder really is.
+
+### The eye gains a second window
+Beside **about** (the observatory) there is now a **changelog** button, opening
+`CHANGELOG.md` in the same modal via a new `app/api/changelog` route that renders
+the markdown into the universe's dark theme. So the two surfaces the heartbeat
+writes — the running log of *changes* and the static *self-portrait* — are both
+now reachable from inside the living view, side by side.
+
+These two front-end changes join the growing stack that lives only in the
+`observe/` working tree (now: verb bar, travel controls, about, changelog,
+absolute sizing) — all live on :3001, still uncommitted in `xo-via/observe`.
