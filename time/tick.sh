@@ -3,7 +3,7 @@
 # time/tick.sh — advance the universe by one tick.
 #
 # Time is the first primitive of this universe. It moves in ticks.
-# One tick = one hour since the big bang (t=0, the root commit).
+# One tick = ten minutes since the big bang (t=0, the root commit).
 #
 # Each tick the universe records itself: it stages whatever has changed,
 # commits a snapshot authored by Satori, and pushes the copy to origin.
@@ -19,12 +19,15 @@ cd "$REPO_ROOT"
 
 # The creator's identity. Every act of the universe is authored by Satori.
 AUTHOR_NAME="Satori"
-AUTHOR_EMAIL="satori@universe.local"
+AUTHOR_EMAIL="satori@xo.builders"
+
+# A tick's length is a fundamental constant of the universe (see CONSTANTS/).
+SNAPSHOT_DURATION_SECONDS="$(cat "$REPO_ROOT/CONSTANTS/SNAPSHOT_DURATION_SECONDS")"
 
 # The big bang: the timestamp of the root (parentless) commit.
 BIG_BANG="$(git log --max-parents=0 --format=%ct | tail -1)"
 NOW="$(date +%s)"
-TICK=$(( (NOW - BIG_BANG) / 3600 ))   # hours elapsed since t=0
+TICK=$(( (NOW - BIG_BANG) / SNAPSHOT_DURATION_SECONDS ))   # ticks elapsed since t=0
 
 git add -A
 

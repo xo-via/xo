@@ -3,8 +3,8 @@
 > What if you could visualize your thoughts?
 
 This is a universe being built from primitives. The folder *is* the universe.
-The first primitive was **time** — the universe advances by one hourly git
-snapshot, and the root commit (`t=0`) is the big bang.
+The first primitive was **time** — the universe advances by one git snapshot
+every ten minutes, and the root commit (`t=0`) is the big bang.
 
 This README is about the second question, the one that started everything:
 
