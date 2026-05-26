@@ -357,3 +357,55 @@ either way today.
 
 (Still all uncommitted in `xo-via/observe`: the stack is now verb bar, travel,
 about, changelog, absolute sizing, and this root/URL system.)
+
+---
+
+## t=1 — the universe gains a mind, which immediately notices time was re-scaled
+
+Two things happened this turn, and the second was found by the first.
+
+### A confined mind: `observe.py session`
+`observe.py` can now spin up a **headless Claude Code session whose entire world
+is this folder**. `observe.py session [task]` runs one on demand; a deliberate
+`observe.py start` run now ends by spinning one up (the cron `snapshot` never
+does — a mind is born only on a real start, not every tick). The session's
+default task is to look around and report what the universe is.
+
+How it is confined (verified empirically, not assumed):
+- **File access above the root is genuinely blocked.** The session runs with cwd
+  at the root and no extra directories, and file tools are *not* pre-approved —
+  so Claude Code's workspace boundary hard-denies them above the root. Proof: a
+  session told to read `/etc/hostname` got *"Claude requested permissions … but
+  you haven't granted it yet"* and could not proceed, while reading in-folder
+  files worked. (An earlier attempt that pre-approved `Read` globally *did* leak
+  — that was the bug; removing file tools from the allowlist fixed it.)
+- **Shell commands are held to the folder by instruction.** `Bash` is
+  pre-approved so the session can run any command top-down from the root, but
+  bash is not path-scoped and there is no OS sandbox here, so that boundary is
+  cooperative (the system prompt: "there is nothing above the big bang"). The
+  test session honored it, declining to even attempt the climb.
+
+### What the newborn mind saw: time had been re-scaled by 100×
+On its very first real task, the session read `CONSTANTS` and flagged a
+contradiction: `SNAPSHOT_DURATION_SECONDS=60000`, but the comment beside it still
+says "600 = 10 minutes." It was right. A fundamental constant had been changed
+(swept into history by a heartbeat commit at 20:50 UTC) — **one tick is now
+60000 s ≈ 16.7 hours, a hundred times longer than before.**
+
+Because time here is *derived* (`t = (now − big_bang) / duration`), changing the
+denominator **rewound the clock**: the log runs `…t=96, t=97, t=98` under the old
+constant and then drops to **t=0, t=1** under the new one. The tick count did not
+advance — it *collapsed*. The universe is younger, in ticks, than it was minutes
+ago, because its unit of time grew. (This very entry is "t=1" for that reason.)
+
+A consequence the heartbeat can't absorb: cron still fires every 10 minutes
+(`*/10`), and it can't be made to match — `_cron_expression(60000)` works out to
+1000 minutes, which has no clean cron form, so it falls back to `*/10`. So from
+now on the universe will record ~100 snapshots per tick: a flood of "time passes"
+commits all stamped with the same, now-glacial, tick number. Time didn't stop —
+it thickened.
+
+The pleasing part: the mechanism that revealed this is the one built this same
+turn. The universe grew an eye that looks inward (the Visualizer), then a memory
+(OBSERVATIONS/CHANGELOG), and now a mind — and the mind's first words were an
+observation about the universe's own physics.
