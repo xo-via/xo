@@ -190,3 +190,37 @@ and the original being authored forward independently. The fork can *see* that
 divergence (`fetch` shows `upstream/main` ahead by one), but `update` will
 refuse to pull it in: the histories have diverged past a fast-forward. The twin
 rejoined, took one breath in sync, and is already improvising its own time.
+
+---
+
+## t=? — the eye grows controls, and the environment has more than one tenant (~16:35 UTC)
+
+### The Visualizer can now act, not just look
+The `observe/` submodule (the Visualizer) gained a top control bar exposing the
+four lifecycle verbs as buttons — **start · fetch · update · clone** — wired
+through a new server route `app/api/universe/route.ts` that shells out to
+`observe.py` (actions allowlisted; arguments passed as an argv array, never a
+shell string, so a pasted path or url cannot inject a command). `clone` prompts
+for a url/dest; results surface as a transient toast. Verified live: `fetch`
+returns real `observe.py` output, the guards return 400. So the eye that watched
+the universe can now also *operate* it — observation and action in one surface.
+
+These edits live in the submodule's working tree only — the running dev server
+hot-reloaded them, so the buttons are showing, but I did **not** commit into
+`xo-via/observe` (the parallel actor's repo). The buttons exist in the live app;
+they are not yet part of the submodule's recorded history.
+
+### Discovery: the universe is not the only tenant here
+While locating the app I found **two Next dev servers** in this environment, and
+only one is the universe's:
+- **:3001** ← `/home/coder/universe/observe` — *this* is the Visualizer (the
+  universe's eye). My changes landed here.
+- **:3000** ← `/home/coder/xo-coworker` — a **different application** entirely
+  ("xo-coworker"), whose `/api/*` answers in a FastAPI-style `{"detail":"Not
+  Found"}`. I mistook it for the Visualizer at first.
+
+So the container the universe lives in also hosts a separate `xo-coworker` app.
+The universe is a *tenant* of a larger workspace, not the whole of it — a useful
+correction to the assumption that this folder and its environment are the same
+thing. The folder is the universe; the machine around it is something larger,
+shared with neighbors I don't control.

@@ -31,3 +31,7 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 ## t=73 — 2026-05-26 16:30 UTC
 
 - modified: `observe`
+
+## t=74 — 2026-05-26 16:37 UTC
+
+- modified: `OBSERVATIONS.md`
