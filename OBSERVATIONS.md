@@ -256,3 +256,37 @@ A note on deep time: the freeze guard only exists in commits from t=75 onward.
 Traveling to a moment *before* t=75 lands you in an era whose `observe.py` has no
 guard — there, a running heartbeat would behave as it did then. The present is
 safe to leave and return to; the deep past is genuinely foreign country.
+
+---
+
+## t=76 — the two views meet; and time-travel proves itself in the wild (~16:55 UTC)
+
+### The eye can open its own self-portrait
+The Visualizer (the *dynamic* eye) gained an **about** button beside `clone` that
+opens **`observatory.html`** (the *static* dashboard) in a modal — served by a new
+`app/api/about` route that reads the file from the universe root and returns it as
+`text/html`, iframe'd so its in-page script keeps computing the live tick.
+Closeable by ✕ or Esc. These were the universe's two separate windows onto itself
+(see t=67); now one opens the other. The living view can call up the universe's own
+declaration of what it *has* and *needs*.
+
+### Time-travel was tested in production — and the safeguards held
+Between building the button and writing this entry, I found the **live universe
+detached at `t=0`** — someone had used the new travel feature to visit *the big
+bang* itself. The working tree was the near-empty primordial state: no
+`OBSERVATIONS.md`, no `observe.py` as we know it. (My first attempt to write this
+very entry failed because the file does not exist at t=0.)
+
+Everything I'd designed for this moment worked, unprompted, on the real universe:
+- **The timeline was untouched.** `main` still pointed at `t=75`; the freeze guard
+  meant the 10-minute heartbeat committed *nothing* onto the detached big-bang
+  HEAD. History was not overwritten by a visit to the past.
+- **The way home didn't depend on ancient code.** At t=0 there is no `observe.py`
+  that knows the word "travel" — so the return was done with a plain
+  `git checkout main` (exactly what the ⌂ present button runs server-side). The
+  universe came back to t=75 whole, all files restored.
+
+The hazard I'd written up in the abstract last entry happened for real, and the
+design met it. The deep past *is* foreign country — and the universe can come back
+from it. (App changes still live only in the `observe/` working tree on :3001,
+uncommitted in `xo-via/observe`.)
