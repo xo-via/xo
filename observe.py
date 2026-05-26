@@ -25,6 +25,7 @@ Usage:
 """
 from __future__ import annotations
 
+import datetime
 import os
 import subprocess
 import sys
@@ -35,6 +36,16 @@ AUTHOR_NAME = "Satori"
 AUTHOR_EMAIL = "satori@xo.builders"
 
 LOG_FILE = os.path.expanduser("~/.universe-tick.log")
+
+# The universe's running record of what changed, tick by tick. Maintained by
+# snapshot() after each observation so the history is legible without git.
+CHANGELOG_FILE = "CHANGELOG.md"
+
+# How git's --name-status letters read in plain words.
+_STATUS_WORDS = {
+    "A": "added", "M": "modified", "D": "deleted",
+    "R": "renamed", "C": "copied", "T": "typechange",
+}
 
 
 # --- where the universe lives -------------------------------------------------
@@ -89,18 +100,70 @@ def current_tick() -> int:
     return (int(time.time()) - big_bang()) // snapshot_duration_seconds()
 
 
+def staged_changes() -> list[tuple[str, str]]:
+    """The (status, path) of everything currently staged, minus the changelog.
+
+    The changelog is excluded because it is bookkeeping *about* the tick, not a
+    change the tick set out to make — listing it would make every entry recite
+    its own name.
+    """
+    out = git("diff", "--cached", "--name-status")
+    changes: list[tuple[str, str]] = []
+    for line in out.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        status, path = parts[0], parts[-1]  # last field is the (new) path
+        if path == CHANGELOG_FILE:
+            continue
+        changes.append((status, path))
+    return changes
+
+
+def record_change(tick: int, changes: list[tuple[str, str]]) -> None:
+    """Append this tick's changes to CHANGELOG.md (append-only, newest last).
+
+    Mirrors the timeline's ethos: read forward through time. Only ticks that
+    actually changed something get an entry — quiet ticks already leave their
+    mark in the git log as "time passes".
+    """
+    path = os.path.join(ROOT, CHANGELOG_FILE)
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write(
+                "# CHANGELOG\n\n"
+                "What changed inside the universe, tick by tick. Maintained "
+                "automatically by `observe.py` after each snapshot; only ticks "
+                "that changed something appear here. Newest at the bottom.\n"
+            )
+
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    lines = [f"\n## t={tick} — {stamp}\n"]
+    for status, p in changes:
+        word = _STATUS_WORDS.get(status[0], status)
+        lines.append(f"- {word}: `{p}`")
+    with open(path, "a") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 def snapshot() -> str:
     """Collect time: commit a snapshot of the universe and push the copy.
 
     Time passes whether or not anything changed, so the commit is allowed to be
     empty — the git log becomes a literal, tick-by-tick timeline of existence.
-    Returns the commit message.
+    When something did change, record it in the changelog before committing, so
+    the snapshot carries its own description. Returns the commit message.
     """
     tick = current_tick()
     git("add", "-A", check=True)
 
-    changed = git("diff", "--cached", "--quiet").returncode != 0
+    changes = staged_changes()
+    changed = bool(changes)
     message = f"t={tick}: snapshot" if changed else f"t={tick}: time passes"
+
+    if changed:
+        record_change(tick, changes)
+        git("add", CHANGELOG_FILE, check=True)
 
     git(
         "-c", f"user.name={AUTHOR_NAME}",
