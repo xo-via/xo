@@ -84,3 +84,7 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 - modified: `TIME.md`
 - modified: `observatory.html`
 - renamed: `xo.py`
+
+## t=1 — 2026-05-26 23:38 UTC
+
+- modified: `OBSERVATIONS.md`

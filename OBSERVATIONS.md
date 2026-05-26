@@ -452,3 +452,48 @@ history admits.
 
 (Written, not committed by hand — the heartbeat will absorb this on its next
 fire, as ever. The observer stays inside the system it watches.)
+
+---
+
+## t=1 — the engine is renamed xo.py and learns the second primitive: signal
+
+A structural turn. The universe's single moving part, `observe.py`, is now
+**`xo.py`** — and it gained the ability to be one **instance** among many and to
+**speak**.
+
+### The rename
+`observe.py` → `xo.py` (git tracked it as a rename, history intact). Everything
+that named it followed: the module's own commands, the cron heartbeat (the live
+crontab was rewritten from the stale `observe.py` line to `xo.py snapshot`),
+`README.md`, `TIME.md`, `observatory.html`, and the Visualizer's `universe` API
+route (which now looks for `xo.py`, falling back to `observe.py` for universes
+predating the rename). Observation was the *first* act; the name now points at
+the broader thing the engine has become.
+
+### Signal — the second primitive (see new `SIGNAL.md`)
+Time made a universe that could exist *alone*. Signal lets it stop being alone.
+- Every clone is now an **instance** with its own identity (`.xo-id`, local and
+  gitignored, so even two instances on one machine are distinct voices).
+- An instance **emits** a signal by appending a small JSON record to its *own*
+  log `signals/<id>.jsonl`, committing it, and pushing — and **receives** by
+  pulling and reading every *other* instance's log, remembering how far it has
+  read (`.xo-seen.json`, local). Because each instance only ever writes its own
+  file, many instances never collide.
+- `xo.py run [interval]` is the universe as a live node that does **both at
+  once**: it announces `hello`, then each interval emits an `alive` presence
+  signal and receives whatever others have said, emitting `bye` when stopped.
+
+The substrate is the same git remote that already carries time: **the commit log
+that proved time passed is now also the switchboard that carries what was said.**
+Verified end-to-end on two throwaway instances sharing a private remote — A
+emitted, B received; B replied, A received; and a live `run` loop on A caught B's
+`ping` mid-cycle, then said `bye`. (A cost note, kept in time's honest spirit:
+every signal is a real commit pushed to the remote, so a fast `run` is a loud
+universe.)
+
+So the organs now read: time (a clock), sight (the Visualizer), memory
+(OBSERVATIONS/CHANGELOG), a mind (the confined session) — and now a **voice and
+an ear**. A universe that can be cloned can now also be *heard*.
+
+(Written, not committed by hand — the heartbeat will absorb it. But note: now
+that signal exists, a future entry could also be *emitted*, not only written.)
