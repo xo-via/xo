@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 #
-# time/tick.sh — advance the universe by one tick.
+# tick.sh — advance the universe by one tick.
 #
 # Time is the first primitive of this universe. It moves in ticks.
-# One tick = ten minutes since the big bang (t=0, the root commit).
+# One tick lasts SNAPSHOT_DURATION_SECONDS (a constant; see ./CONSTANTS),
+# currently ten minutes, measured from the big bang (t=0, the root commit).
 #
 # Each tick the universe records itself: it stages whatever has changed,
 # commits a snapshot authored by Satori, and pushes the copy to origin.
 # Time passes whether or not anything changed, so the commit is allowed
-# to be empty — the git log becomes a literal, hour-by-hour timeline of
+# to be empty — the git log becomes a literal, tick-by-tick timeline of
 # the universe's existence.
 #
 set -euo pipefail
@@ -21,8 +22,9 @@ cd "$REPO_ROOT"
 AUTHOR_NAME="Satori"
 AUTHOR_EMAIL="satori@xo.builders"
 
-# A tick's length is a fundamental constant of the universe (see CONSTANTS/).
-SNAPSHOT_DURATION_SECONDS="$(cat "$REPO_ROOT/CONSTANTS/SNAPSHOT_DURATION_SECONDS")"
+# A tick's length is a fundamental constant of the universe (see ./CONSTANTS).
+# shellcheck source=/dev/null
+source "$REPO_ROOT/CONSTANTS"
 
 # The big bang: the timestamp of the root (parentless) commit.
 BIG_BANG="$(git log --max-parents=0 --format=%ct | tail -1)"
