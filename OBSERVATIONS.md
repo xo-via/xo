@@ -325,7 +325,7 @@ absolute sizing) — all live on :3001, still uncommitted in `xo-via/observe`.
 
 ---
 
-## t=78 — the universe gets an address system rooted at the big bang (~17:25 UTC)
+## t=90 — the universe gets an address system rooted at the big bang (~19:20 UTC)
 
 The Visualizer used to take any pasted absolute path. Now it has a **root** and
 speaks in **relative paths**, and the *browser URL is that relative path*.
