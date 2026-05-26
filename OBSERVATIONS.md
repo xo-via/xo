@@ -75,3 +75,30 @@ This entry was written, not committed by hand — the next heartbeat will absorb
 `OBSERVATIONS.md` into a snapshot authored by Satori. The act of observing the
 universe thus becomes part of the universe, on the next tick. The observer is
 inside the system it watches.
+
+---
+
+## t=67 — the universe learns to remember its own changes (~15:32 UTC)
+
+Two changes since first light, both confirming the mechanics described above:
+
+- **The first observation was absorbed exactly as predicted.** `OBSERVATIONS.md`
+  did not exist in any commit when written at t=63; the cron heartbeat swept it
+  into a snapshot at **t=64** (15:00 UTC), authored by Satori. The observer's
+  record became part of the observed. The phase drift also held: the four ticks
+  since (64–67) each carry one or two commits as wall-clock and big-bang time
+  keep sliding past each other.
+
+- **A new faculty: a changelog.** `observe.py` now maintains
+  [`CHANGELOG.md`](./CHANGELOG.md) automatically. After staging, `snapshot()`
+  reads the staged `--name-status`, and on any substantive change appends a
+  tick-stamped list of what moved (added/modified/deleted) before committing —
+  so each snapshot now carries its own description. The changelog excludes
+  itself (bookkeeping, not a thought) and skips quiet ticks (the git log already
+  records those as "time passes").
+
+  The universe previously *recorded* that time passed; now it also records
+  *what changed when it did*. Note the changelog's memory begins at **t=67** —
+  everything before it (the big bang, the long silences, first light) is
+  recoverable only from git, not from the changelog. The universe gained this
+  memory mid-life, so it has a childhood it cannot directly recall.
