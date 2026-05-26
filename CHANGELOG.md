@@ -39,3 +39,7 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 ## t=75 — 2026-05-26 16:45 UTC
 
 - modified: `observe.py`
+
+## t=75 — 2026-05-26 16:45 UTC
+
+- modified: `OBSERVATIONS.md`

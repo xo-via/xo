@@ -224,3 +224,35 @@ The universe is a *tenant* of a larger workspace, not the whole of it — a usef
 correction to the assumption that this folder and its environment are the same
 thing. The folder is the universe; the machine around it is something larger,
 shared with neighbors I don't control.
+
+---
+
+## t=75 — the universe can now visit its own past (~16:45 UTC)
+
+Since time here *is* the git log, time-travel is just moving to another commit —
+and `observe.py` learned to do it: **`observe.py travel <moment>`**, where a
+moment is a tick (`t=42`), a SHA, or `present`/`now` to come home. It fetches
+first (so moments that live only on a remote are reachable), then detaches the
+working tree to that commit. The front-end gained it too: scrub the timeline to
+*preview* a commit (as before), then **⤓ travel here** to actually move the
+universe there, or **⌂ present** to return.
+
+The hard part was protecting a *living* universe from its own past:
+
+- **Time freezes while traveling.** `snapshot()` now refuses to commit when HEAD
+  is detached — so the 10-minute heartbeat can never write a snapshot onto a
+  visited past or strand commits on a detached HEAD. When you return to the
+  present, time resumes. Verified: a snapshot attempt while detached prints
+  *"time is frozen — the universe is visiting t=N"* and commits nothing.
+
+- **Returning home never depends on old code.** Traveling to a commit replaces
+  every file with that commit's version — *including `observe.py` itself*. Visit
+  a moment older than this feature and the `observe.py` on disk won't know the
+  word "travel." So the front-end's **⌂ present** doesn't call `observe.py` at
+  all; the API route runs `git checkout <home>` directly. The way back is wired
+  to bedrock, not to the time-traveler's own (possibly ancient) hands.
+
+A note on deep time: the freeze guard only exists in commits from t=75 onward.
+Traveling to a moment *before* t=75 lands you in an era whose `observe.py` has no
+guard — there, a running heartbeat would behave as it did then. The present is
+safe to leave and return to; the deep past is genuinely foreign country.
