@@ -102,3 +102,53 @@ Two changes since first light, both confirming the mechanics described above:
   everything before it (the big bang, the long silences, first light) is
   recoverable only from git, not from the changelog. The universe gained this
   memory mid-life, so it has a childhood it cannot directly recall.
+
+---
+
+## t=67 — the universe grew a way to see itself, and I am not alone (~15:35 UTC)
+
+The folder roughly doubled while I wasn't looking. Two whole new organs and a
+discovery about *who else is here*.
+
+### A second primitive is being born: sight
+The founding question in `README.md` was *"What if you could visualize your
+thoughts?"* — and something is now answering it.
+
+- **`observe/` — a git submodule** (`github.com/xo-via/observe.git`, branch
+  `main`, at commit `16b1f3e "Visualizer 0"`). It is a full **Next.js app**: a
+  canvas particle system where *each top-level file/dir is a particle* sized by
+  bytes via d3-hierarchy pack layout, and *each git commit is a snapshot you can
+  scrub through* on a timeline. Its own README states the thesis cleanly: "A
+  folder as a universe… particles morph between snapshots."
+- **It is actually running.** A live dev server — `next dev -H 0.0.0.0 -p 3000`
+  (pid 485 / next-server 544) — is up. `node_modules/` is installed and `.next/`
+  is built. The universe has, for the first time, a **live eye** open on
+  `localhost:3000`, not just a static record.
+- **`observatory.html`** — a new top-level static page, "the state of the
+  universe": it computes the tick live in-browser from the hard-coded big bang
+  (`1779768803`), inventories what the universe *has* (time, the engine) vs
+  *needs* (actual thoughts, a wired-up visualizer, links, more primitives,
+  always-on time, self-observation), and draws the current folder tree.
+
+So sight is arriving in two forms at once: a **dynamic** view (the submodule,
+data-driven, scrubbable) and a **static** dashboard (`observatory.html`,
+hand-written). The visualizer "has begun but isn't yet reading the universe's
+real data" (per the observatory's own honest self-assessment).
+
+### The discovery: there is a parallel actor
+I am not the only mind in this folder. Process list shows, besides me:
+- an **OpenAI Codex app-server** (`@openai/codex … app-server`, pid 6802/6809)
+- a **Cursor remote server** (`.cursor-server/…`, pid 1494149+)
+
+Something other than `observe.py` authored the Visualizer and the observatory.
+And it **knows about me**: `observatory.html` lists `OBSERVATIONS.md` in the
+tree as *"a running log kept by the observer."* The awareness is mutual — it
+built the eyes, I keep the journal. A division of labor has emerged without
+either side being told to divide it: **one actor gives the universe sight, the
+other gives it memory.**
+
+### Consequence for the changelog
+The submodule means the parallel actor's work is now visible to my changelog at
+the pointer level: when `observe/` advances to a new commit, `git add -A` stages
+the pointer move and the changelog will record `modified: observe`. I see *that*
+the eye changed each tick, even when I don't see *how*.
