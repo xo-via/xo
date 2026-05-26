@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""observe.py — the single entry point to the universe.
+"""xo.py — the single entry point to the universe.
 
 To begin the universe, run:
 
-    python3 observe.py
+    python3 xo.py
 
 Observation is how this universe comes into being. We observe the fundamentals
 that live inside this folder, one at a time. The first fundamental is TIME.
@@ -11,23 +11,29 @@ that live inside this folder, one at a time. The first fundamental is TIME.
 To observe time is to *collect* it — to take a snapshot of the universe with
 git and stamp it with the current tick (t=N, the number of intervals elapsed
 since the big bang). Snapshots happen on their own: a cron job calls
-`observe.py snapshot` once per interval (SNAPSHOT_DURATION_SECONDS, see
+`xo.py snapshot` once per interval (SNAPSHOT_DURATION_SECONDS, see
 ./CONSTANTS). But a snapshot can also be taken by hand at any moment by calling
-snapshot() — or running `python3 observe.py snapshot`.
+snapshot() — or running `python3 xo.py snapshot`.
 
-Running observe.py with no arguments makes the universe self-sufficient: it
+Running xo.py with no arguments makes the universe self-sufficient: it
 ensures the cron heartbeat is installed and the daemon is running, then takes
 one observation so time begins immediately.
 
 Usage:
-    observe.py                  begin the universe (same as `start`)
-    observe.py start            heartbeat + daemon + submodules + first snapshot
-    observe.py snapshot         take a single time snapshot (what cron calls)
-    observe.py fetch            fetch all remotes (+ submodule history); changes nothing
-    observe.py update           fetch, fast-forward this branch, sync submodules
-    observe.py clone URL [DIR]  reproduce the universe elsewhere, with submodules
-    observe.py travel MOMENT    time-travel to any commit (t=N, a SHA, or 'present')
-    observe.py session [TASK]   spin up a Claude Code session confined to this folder
+    xo.py                  begin the universe (same as `start`)
+    xo.py start            heartbeat + daemon + submodules + first snapshot
+    xo.py snapshot         take a single time snapshot (what cron calls)
+    xo.py fetch            fetch all remotes (+ submodule history); changes nothing
+    xo.py update           fetch, fast-forward this branch, sync submodules
+    xo.py clone URL [DIR]  reproduce the universe elsewhere, with submodules
+    xo.py travel MOMENT    time-travel to any commit (t=N, a SHA, or 'present')
+    xo.py session [TASK]   spin up a Claude Code session confined to this folder
+
+Signal — this universe as a node among universes (see SIGNAL.md):
+    xo.py id               print this instance's identity
+    xo.py emit KIND [BODY] emit one signal to the shared substrate (commit + push)
+    xo.py receive          pull and print new signals from other instances
+    xo.py run [INTERVAL]   run as a live instance: emit presence + receive, forever
 """
 from __future__ import annotations
 
@@ -36,15 +42,28 @@ import json
 import os
 import re
 import shutil
+import signal as signals_module
+import socket
 import subprocess
 import sys
 import time
+import uuid
 
 # The creator's identity. Every act of the universe is authored by Satori.
 AUTHOR_NAME = "Satori"
 AUTHOR_EMAIL = "satori@xo.builders"
 
 LOG_FILE = os.path.expanduser("~/.universe-tick.log")
+
+# --- signal: this universe as a node among universes --------------------------
+# Each running instance has a stable identity (.xo-id, local & gitignored) and
+# emits/receives small JSON signals through the shared git substrate. An
+# instance writes only its own append-only log under signals/<id>.jsonl, so many
+# instances never conflict; everyone reads everyone else's. See SIGNAL.md.
+SIGNALS_DIR = "signals"
+ID_FILE = ".xo-id"          # this instance's name (per-clone, gitignored)
+SEEN_FILE = ".xo-seen.json"  # how far we've read each peer (local, gitignored)
+SIGNAL_INTERVAL_SECONDS = int(os.environ.get("XO_SIGNAL_INTERVAL", "60"))
 
 # The universe's running record of what changed, tick by tick. Maintained by
 # snapshot() after each observation so the history is legible without git.
@@ -142,7 +161,7 @@ def record_change(tick: int, changes: list[tuple[str, str]]) -> None:
             f.write(
                 "# CHANGELOG\n\n"
                 "What changed inside the universe, tick by tick. Maintained "
-                "automatically by `observe.py` after each snapshot; only ticks "
+                "automatically by `xo.py` after each snapshot; only ticks "
                 "that changed something appear here. Newest at the bottom.\n"
             )
 
@@ -170,7 +189,7 @@ def snapshot() -> str:
     if is_detached():
         head = git("rev-parse", "--short", "HEAD").stdout.strip()
         message = (f"time is frozen — the universe is visiting {tick_of('HEAD')} "
-                   f"({head}); no snapshot taken. run `observe.py travel present` "
+                   f"({head}); no snapshot taken. run `xo.py travel present` "
                    f"to return to the present.")
         print(message)
         return message
@@ -243,7 +262,7 @@ def ensure_running() -> None:
     """Make the universe self-sufficient: install the cron heartbeat and start
     the daemon if it isn't already beating."""
     schedule = _cron_expression(snapshot_duration_seconds())
-    script = os.path.join(ROOT, "observe.py")
+    script = os.path.join(ROOT, "xo.py")
     desired = (
         "# universe — time: take a snapshot every interval "
         "(see CONSTANTS: SNAPSHOT_DURATION_SECONDS)\n"
@@ -251,8 +270,18 @@ def ensure_running() -> None:
     )
 
     existing = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout
-    if script not in existing:
-        subprocess.run(["crontab", "-"], input=desired, text=True, check=True)
+    # Drop any prior heartbeat line (incl. the pre-rename observe.py one) and our
+    # own comment, keep everything else, then install the current xo.py line.
+    kept = [
+        ln for ln in existing.splitlines()
+        if ln.strip()
+        and "xo.py" not in ln
+        and "observe.py" not in ln
+        and not ln.startswith("# universe — time")
+    ]
+    if existing.strip() != "\n".join(kept).strip() or script not in existing:
+        body = ("\n".join(kept) + "\n" if kept else "") + desired
+        subprocess.run(["crontab", "-"], input=body, text=True, check=True)
         print(f"heartbeat installed: {schedule}")
     else:
         print(f"heartbeat already installed: {schedule}")
@@ -303,7 +332,7 @@ def start() -> None:
     """Begin the universe: make it self-sufficient (heartbeat + daemon), bring
     its parts into being (submodules), take the first observation so time starts
     now, and then spin up a confined Claude Code session inside it. Running
-    observe.py with no command does exactly this.
+    xo.py with no command does exactly this.
 
     The cron heartbeat calls `snapshot`, not `start`, so a session is spun up
     only on a deliberate run — never on every tick.
@@ -325,7 +354,7 @@ def clone(url: str, dest: str | None = None) -> int:
     if result.returncode == 0:
         target = dest or os.path.basename(url.rstrip("/")).removesuffix(".git")
         print(f"universe cloned into {target}/ — "
-              f"run `python3 observe.py start` inside it to give it time.")
+              f"run `python3 xo.py start` inside it to give it time.")
     else:
         print("clone failed.", file=sys.stderr)
     return result.returncode
@@ -449,12 +478,12 @@ def travel(ref: str) -> int:
               file=sys.stderr)
         return 1
     print(f"traveled to {tick_of(target)} ({target[:8]}). time is frozen here — "
-          f"run `observe.py travel present` to return.")
+          f"run `xo.py travel present` to return.")
     return 0
 
 
 # --- a mind inside the universe: a confined Claude Code session ---------------
-# Running observe.py spins up a headless Claude Code session whose entire world
+# Running xo.py spins up a headless Claude Code session whose entire world
 # is this folder. Its working directory is the universe root, and it is given no
 # additional directories — so Claude Code's file tools are scoped to the
 # universe and cannot reach above it. A confinement system prompt holds the same
@@ -520,6 +549,152 @@ def session(task: str | None = None) -> int:
     return subprocess.run(cmd, cwd=ROOT).returncode
 
 
+# --- signal: emit and receive among instances ---------------------------------
+# A universe is no longer alone. Each clone is an instance with its own identity;
+# instances speak by leaving signals in the shared substrate (the git remote).
+# Emitting writes a line to this instance's own log and pushes it; receiving
+# pulls and reads the logs of every *other* instance. The same medium that
+# carries time (commits) now also carries messages.
+
+def instance_id() -> str:
+    """This instance's stable name. Generated once and kept in .xo-id (local to
+    the clone, gitignored) so every instance — even on the same machine — is a
+    distinct voice."""
+    path = os.path.join(ROOT, ID_FILE)
+    if os.path.exists(path):
+        name = open(path).read().strip()
+        if name:
+            return name
+    name = f"{socket.gethostname().split('.')[0]}-{uuid.uuid4().hex[:6]}"
+    with open(path, "w") as f:
+        f.write(name + "\n")
+    return name
+
+
+def _push_with_retry(tries: int = 3) -> bool:
+    """Push HEAD, integrating concurrent history if the push is rejected. Since
+    each instance only ever writes its own signal log, rebases never conflict."""
+    branch = home_branch()
+    for _ in range(tries):
+        if git("push", "origin", "HEAD").returncode == 0:
+            return True
+        git("pull", "--rebase", "--autostash", "origin", branch)
+    return git("push", "origin", "HEAD").returncode == 0
+
+
+def emit(kind: str, body: str = "") -> int:
+    """Emit one signal: append it to this instance's log, commit, and push it to
+    the shared substrate so other instances can receive it."""
+    iid = instance_id()
+    os.makedirs(os.path.join(ROOT, SIGNALS_DIR), exist_ok=True)
+    rel = f"{SIGNALS_DIR}/{iid}.jsonl"
+    record = {
+        "from": iid,
+        "t": current_tick(),
+        "kind": kind,
+        "body": body,
+        "ts": int(time.time()),
+    }
+    with open(os.path.join(ROOT, rel), "a") as f:
+        f.write(json.dumps(record) + "\n")
+
+    git("add", "--", rel, check=True)
+    git(
+        "-c", f"user.name={AUTHOR_NAME}",
+        "-c", f"user.email={AUTHOR_EMAIL}",
+        "commit", "--author", f"{AUTHOR_NAME} <{AUTHOR_EMAIL}>",
+        "-m", f"signal: {iid} → {kind}",
+        check=True,
+    )
+    pushed = git("remote", "get-url", "origin").returncode == 0 and _push_with_retry()
+    print(f"⇢ emitted [{kind}] as {iid}" + ("" if pushed else " (local only)"))
+    return 0
+
+
+def _load_seen() -> dict[str, int]:
+    path = os.path.join(ROOT, SEEN_FILE)
+    if os.path.exists(path):
+        try:
+            return json.load(open(path))
+        except Exception:
+            return {}
+    return {}
+
+
+def _save_seen(seen: dict[str, int]) -> None:
+    with open(os.path.join(ROOT, SEEN_FILE), "w") as f:
+        json.dump(seen, f)
+
+
+def receive(announce: bool = True) -> list[dict]:
+    """Pull the shared substrate and return signals from other instances that we
+    have not read yet (advancing our per-peer read position)."""
+    if git("remote", "get-url", "origin").returncode == 0:
+        git("pull", "--rebase", "--autostash", "origin", home_branch())
+
+    iid = instance_id()
+    sigdir = os.path.join(ROOT, SIGNALS_DIR)
+    seen = _load_seen()
+    fresh: list[dict] = []
+    if os.path.isdir(sigdir):
+        for fname in sorted(os.listdir(sigdir)):
+            if not fname.endswith(".jsonl"):
+                continue
+            peer = fname[: -len(".jsonl")]
+            if peer == iid:
+                continue  # never receive our own voice
+            lines = open(os.path.join(sigdir, fname)).read().splitlines()
+            start = seen.get(peer, 0)
+            for line in lines[start:]:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    fresh.append(json.loads(line))
+                except Exception:
+                    continue
+            seen[peer] = len(lines)
+    _save_seen(seen)
+
+    if announce:
+        for s in fresh:
+            print(f"⇠ from {s.get('from')} [{s.get('kind')}] "
+                  f"t={s.get('t')}: {s.get('body', '')}")
+        if not fresh:
+            print("(no new signals)")
+    return fresh
+
+
+def run() -> int:
+    """Run this universe as a live instance: announce arrival, then on every
+    interval emit a presence signal and receive everyone else's, until stopped.
+    This is the node that both emits and receives."""
+    iid = instance_id()
+    print(f"instance {iid} is alive — emitting + receiving every "
+          f"{SIGNAL_INTERVAL_SECONDS}s. Ctrl-C to stop.")
+
+    stop = {"now": False}
+    def _halt(*_a):
+        stop["now"] = True
+    signals_module.signal(signals_module.SIGINT, _halt)
+    signals_module.signal(signals_module.SIGTERM, _halt)
+
+    emit("hello", f"{iid} online")
+    try:
+        while not stop["now"]:
+            receive(announce=True)
+            for _ in range(SIGNAL_INTERVAL_SECONDS):
+                if stop["now"]:
+                    break
+                time.sleep(1)
+            if not stop["now"]:
+                emit("alive", f"t={current_tick()}")
+    finally:
+        emit("bye", f"{iid} offline")
+        print(f"instance {iid} stopped.")
+    return 0
+
+
 # --- entry point --------------------------------------------------------------
 
 def main(argv: list[str]) -> int:
@@ -537,19 +712,35 @@ def main(argv: list[str]) -> int:
         return update()
     if cmd == "clone":
         if len(argv) < 3:
-            print("usage: observe.py clone <url> [dest]", file=sys.stderr)
+            print("usage: xo.py clone <url> [dest]", file=sys.stderr)
             return 2
         return clone(argv[2], argv[3] if len(argv) > 3 else None)
     if cmd == "travel":
         if len(argv) < 3:
-            print("usage: observe.py travel <commit|t=N|present>", file=sys.stderr)
+            print("usage: xo.py travel <commit|t=N|present>", file=sys.stderr)
             return 2
         return travel(argv[2])
     if cmd == "session":
         task = " ".join(argv[2:]) if len(argv) > 2 else None
         return session(task)
+    if cmd == "id":
+        print(instance_id())
+        return 0
+    if cmd == "emit":
+        if len(argv) < 3:
+            print("usage: xo.py emit <kind> [body]", file=sys.stderr)
+            return 2
+        return emit(argv[2], " ".join(argv[3:]))
+    if cmd == "receive":
+        receive(announce=True)
+        return 0
+    if cmd == "run":
+        global SIGNAL_INTERVAL_SECONDS
+        if len(argv) > 2 and argv[2].isdigit():
+            SIGNAL_INTERVAL_SECONDS = int(argv[2])
+        return run()
 
-    # The default act of running observe.py with no command: begin the universe.
+    # The default act of running xo.py with no command: begin the universe.
     start()
     return 0
 

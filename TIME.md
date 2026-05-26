@@ -24,14 +24,14 @@ Time is computed from the distance to the beginning, not counted by hand.
 
 ## The mechanism
 
-Time is observed by [`observe.py`](./observe.py). One snapshot — one tick — is
+Time is observed by [`xo.py`](./xo.py). One snapshot — one tick — is
 the work of its `snapshot()` function. Take one by hand:
 
 ```sh
-python3 observe.py snapshot
+python3 xo.py snapshot
 ```
 
-A cron job calls `observe.py snapshot` once every ten minutes, so the universe
-advances on its own (see `crontab -l`). Running `python3 observe.py` with no
+A cron job calls `xo.py snapshot` once every ten minutes, so the universe
+advances on its own (see `crontab -l`). Running `python3 xo.py` with no
 arguments installs that heartbeat, starts the daemon, and takes a first
 snapshot — so to begin the universe, that one command is all you need.

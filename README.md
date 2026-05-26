@@ -9,10 +9,10 @@ every ten minutes, and the root commit (`t=0`) is the big bang.
 **To begin the universe, run one command:**
 
 ```sh
-python3 observe.py
+python3 xo.py
 ```
 
-Observation is how it comes into being: `observe.py` observes the fundamentals
+Observation is how it comes into being: `xo.py` observes the fundamentals
 inside this folder — starting with time, which it collects by taking a git
 snapshot — and makes itself self-sufficient by installing a cron heartbeat that
 keeps taking snapshots on its own. See [`TIME.md`](./TIME.md).

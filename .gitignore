@@ -2,3 +2,9 @@
 # Build/runtime artifacts are ephemera and stay out of the timeline.
 __pycache__/
 *.pyc
+
+# Per-instance identity and signal read-position — local to each clone, never
+# shared. (The signals themselves, under signals/, ARE tracked: they are the
+# messages.)
+.xo-id
+.xo-seen.json

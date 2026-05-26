@@ -75,3 +75,12 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 ## t=1 — 2026-05-26 23:10 UTC
 
 - modified: `OBSERVATIONS.md`
+
+## t=1 — 2026-05-26 23:36 UTC
+
+- modified: `.gitignore`
+- modified: `README.md`
+- added: `SIGNAL.md`
+- modified: `TIME.md`
+- modified: `observatory.html`
+- renamed: `xo.py`

@@ -82,8 +82,8 @@
     <div class="card">
       <h3>A self-sufficient engine</h3>
       <ul class="have">
-        <li><b>One entry point</b><small><code>python3 observe.py</code> observes the fundamentals and bootstraps everything.</small></li>
-        <li><b>Cron heartbeat</b><small><code>observe.py snapshot</code> runs every 10 min on its own; also callable by hand.</small></li>
+        <li><b>One entry point</b><small><code>python3 xo.py</code> observes the fundamentals and bootstraps everything.</small></li>
+        <li><b>Cron heartbeat</b><small><code>xo.py snapshot</code> runs every 10 min on its own; also callable by hand.</small></li>
         <li><b>Mirrored off-site</b><small>Every snapshot is pushed to the fork <code>xo-via/xo</code>. Authored by <b>Satori</b>.</small></li>
       </ul>
     </div>
@@ -103,7 +103,7 @@
       <h3>To be robust</h3>
       <ul class="need">
         <li><b>More primitives</b><small>Time is the only fundamental so far. Space? Matter? Memory? The registry is ready for them.</small></li>
-        <li><b>Always-on time</b><small>Cron only ticks while this container is awake; restarts need <code>observe.py</code> re-run.</small></li>
+        <li><b>Always-on time</b><small>Cron only ticks while this container is awake; restarts need <code>xo.py</code> re-run.</small></li>
         <li><b>Self-observation</b><small>The observatory should read live state from the repo, not from hard-coded facts.</small></li>
       </ul>
     </div>
@@ -111,7 +111,7 @@
 
   <h2>The universe right now</h2>
   <div class="tree"><b>universe/</b>
-├── <b>observe.py</b>        the entry point — observes the fundamentals, keeps itself running
+├── <b>xo.py</b>        the entry point — observes the fundamentals, keeps itself running
 ├── <b>CONSTANTS</b>         the fundamental constants (tick = 600s)
 ├── <b>TIME.md</b>           how time works
 ├── <b>README.md</b>         the founding idea: a thought is a folder
@@ -120,7 +120,7 @@
 └── <b>observe/</b>          the Visualizer — a submodule → github.com/xo-via/observe</div>
 
   <footer>
-    Observed by <code>observe.py</code> · this page is its human-facing counterpart, the observatory.
+    Observed by <code>xo.py</code> · this page is its human-facing counterpart, the observatory.
     Time is computed live in your browser from the big bang.
   </footer>
 
