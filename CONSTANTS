@@ -1,0 +1,6 @@
+# The fundamental constants of the universe.
+# Each line is NAME=value; scripts source this file to read them.
+# Change one and the universe behaves differently from that tick onward.
+
+# How long one tick lasts, in seconds. 600 = 10 minutes.
+SNAPSHOT_DURATION_SECONDS=600

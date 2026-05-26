@@ -1,0 +1,4 @@
+[submodule "observe"]
+	path = observe
+	url = https://github.com/xo-via/observe.git
+	branch = main
