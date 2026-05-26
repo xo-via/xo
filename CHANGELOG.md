@@ -18,3 +18,8 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 
 - added: `__pycache__/observe.cpython-312.pyc`
 - modified: `observe.py`
+
+## t=71 — 2026-05-26 16:11 UTC
+
+- added: `.gitignore`
+- deleted: `__pycache__/observe.cpython-312.pyc`

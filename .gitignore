@@ -1,0 +1,4 @@
+# The universe records what it thinks, not how it ran.
+# Build/runtime artifacts are ephemera and stay out of the timeline.
+__pycache__/
+*.pyc
