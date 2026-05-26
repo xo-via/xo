@@ -20,8 +20,12 @@ ensures the cron heartbeat is installed and the daemon is running, then takes
 one observation so time begins immediately.
 
 Usage:
-    observe.py            observe the fundamentals + ensure the universe keeps running
-    observe.py snapshot   take a single time snapshot (what cron calls)
+    observe.py                  begin the universe (same as `start`)
+    observe.py start            heartbeat + daemon + submodules + first snapshot
+    observe.py snapshot         take a single time snapshot (what cron calls)
+    observe.py fetch            fetch all remotes (+ submodule history); changes nothing
+    observe.py update           fetch, fast-forward this branch, sync submodules
+    observe.py clone URL [DIR]  reproduce the universe elsewhere, with submodules
 """
 from __future__ import annotations
 
@@ -247,15 +251,121 @@ def ensure_running() -> None:
         print("cron daemon already running.")
 
 
+# --- the universe's reach: start, clone, fetch, update ------------------------
+# Four lifecycle verbs. A universe must be able to begin (start), be copied
+# elsewhere (clone), notice what other copies have done (fetch), and take that
+# in (update). Together they let the universe exist in more than one place and
+# stay in agreement with itself across them.
+
+def _missing_submodules() -> list[str]:
+    """Paths of submodules declared but not yet checked out.
+
+    `git submodule status` prefixes an uninitialized submodule with '-'. A
+    submodule already present (e.g. the Visualizer someone is editing live) is
+    left out of this list so it is never disturbed.
+    """
+    if not os.path.exists(os.path.join(ROOT, ".gitmodules")):
+        return []
+    status = git("submodule", "status").stdout.splitlines()
+    return [line.split()[1] for line in status if line.startswith("-")]
+
+
+def materialize_submodules() -> None:
+    """Bring any not-yet-present submodules into being (the Visualizer's eye is
+    one). Submodules already checked out are left exactly as they are."""
+    missing = _missing_submodules()
+    if not missing:
+        return
+    for path in missing:
+        done = git("submodule", "update", "--init", "--", path)
+        print(f"materialized submodule: {path}" if done.returncode == 0
+              else f"could not materialize {path}:\n{done.stderr}", file=sys.stderr if done.returncode else sys.stdout)
+
+
+def start() -> None:
+    """Begin the universe: make it self-sufficient (heartbeat + daemon), bring
+    its parts into being (submodules), then take the first observation so time
+    starts now. Running observe.py with no command does exactly this."""
+    ensure_running()
+    materialize_submodules()
+    observe()
+
+
+def clone(url: str, dest: str | None = None) -> int:
+    """Reproduce the universe elsewhere — clone it whole, including the
+    submodules that are its other organs. Runs in the caller's directory, not
+    the universe root, since the point is to create a new one beside it."""
+    argv = ["git", "clone", "--recurse-submodules", url]
+    if dest:
+        argv.append(dest)
+    result = subprocess.run(argv, text=True)
+    if result.returncode == 0:
+        target = dest or os.path.basename(url.rstrip("/")).removesuffix(".git")
+        print(f"universe cloned into {target}/ — "
+              f"run `python3 observe.py start` inside it to give it time.")
+    else:
+        print("clone failed.", file=sys.stderr)
+    return result.returncode
+
+
+def fetch() -> int:
+    """Observe history made elsewhere: fetch every remote (and the history of
+    initialized submodules) without touching the working tree. Nothing in the
+    present changes — the universe only learns what other copies have done."""
+    result = git("fetch", "--all", "--recurse-submodules")
+    sys.stdout.write(result.stdout)
+    sys.stderr.write(result.stderr)
+    if result.returncode == 0:
+        print("fetched all remotes.")
+    return result.returncode
+
+
+def update() -> int:
+    """Bring the local universe up to date: fetch, fast-forward the current
+    branch from origin, and move submodules to their recorded commits. Only a
+    fast-forward is allowed — `update` never invents a merge or rewrites time;
+    if histories have diverged it says so and leaves the present untouched."""
+    if fetch() != 0:
+        return 1
+    branch = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    pull = git("pull", "--ff-only", "origin", branch)
+    sys.stdout.write(pull.stdout)
+    sys.stderr.write(pull.stderr)
+    if pull.returncode != 0:
+        print("could not fast-forward — the universe has diverged; "
+              "left untouched.", file=sys.stderr)
+        return 1
+    sub = git("submodule", "update", "--init", "--recursive")
+    if sub.returncode != 0:
+        print(f"branch updated, but submodule sync failed:\n{sub.stderr}", file=sys.stderr)
+        return 1
+    print("universe updated.")
+    return 0
+
+
 # --- entry point --------------------------------------------------------------
 
 def main(argv: list[str]) -> int:
-    if len(argv) > 1 and argv[1] == "snapshot":
+    cmd = argv[1] if len(argv) > 1 else None
+
+    if cmd == "snapshot":
         snapshot()
         return 0
-    # The default act of running observe.py: keep the universe alive, then look.
-    ensure_running()
-    observe()
+    if cmd == "start":
+        start()
+        return 0
+    if cmd == "fetch":
+        return fetch()
+    if cmd == "update":
+        return update()
+    if cmd == "clone":
+        if len(argv) < 3:
+            print("usage: observe.py clone <url> [dest]", file=sys.stderr)
+            return 2
+        return clone(argv[2], argv[3] if len(argv) > 3 else None)
+
+    # The default act of running observe.py with no command: begin the universe.
+    start()
     return 0
 
 
