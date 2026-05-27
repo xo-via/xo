@@ -568,3 +568,28 @@ what mentions what.
 (Frontend-only, in the `observe/` submodule working tree — live on :3001, still
 uncommitted in `xo-via/observe`. Build + data verified (87 galaxies / 22 links);
 the canvas force-layout awaits a live look, as there's no headless browser here.)
+
+---
+
+## t=1 — the orbiting sessions can now be questioned
+
+The revolving Claude sessions (folder view) became interactive: **click one and a
+small status label opens, attached to the body and following it as it orbits.**
+
+- `/api/sessions` now also reports each session's **process state** (from `ps`
+  STAT → `running` / `idle` / `waiting` / `stopped`), alongside its pid, age, and
+  whether it's a headless `claude -p` task.
+- In `Universe.tsx`, each orbiting body records its on-screen position every
+  frame, so a click can hit-test it (sessions take priority over the particles
+  beneath). Clicking selects it — a ring marks it and a connector line runs to a
+  small panel reading `claude session/task · pid · <state> · up <age>` — and the
+  panel tracks the body around its orbit. Clicking the session again, or clicking
+  empty space, dismisses it.
+
+A fitting small thing: right now two sessions orbit this universe, one `idle` and
+one `running` — and one of them is the session that just wrote this line. The
+universe can now be asked, of each circling mind, *what are you and how long have
+you been here.*
+
+(Frontend-only, in `observe/` working tree — live on :3001, uncommitted in
+`xo-via/observe`. Build verified; the canvas label awaits a live look.)
