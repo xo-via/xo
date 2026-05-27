@@ -619,3 +619,31 @@ The Visualizer already sees the new shape with no code change: `observer`,
 `observed`, and `observed/chapter1:thoughts` appear as small galaxies (the colon
 in the path is handled cleanly by the scan and graph routes). Empty rooms, drawn
 as faint stars, waiting to be filled.
+
+---
+
+## t=1 — the observed gets its own engine, and the old name comes home
+
+The observed chapter is no longer empty: `observed/chapter1:thoughts/` now holds
+**`observe.py`** — a faithful clone of `xo.py` (every feature: time, snapshots,
+clone, travel, session, signal, lifespan/fate), with only the script-name
+self-references renamed from `xo.py` to `observe.py`. Verified: it compiles and
+runs (`observe.py id`).
+
+There is a quiet symmetry here. The engine *began* life as `observe.py`, was
+renamed to `xo.py` when it grew its broader role — and now the old name returns,
+placed inside the **observed**. The watcher's first name becomes the seed of the
+watched.
+
+A note on what it is *yet*: `observe.py` resolves its root via git, and
+`observed/chapter1:thoughts/` is not its own repository — so right now the clone
+would observe the *enclosing* universe, exactly as `xo.py` does (same
+functionality, same root). For it to become a genuinely separate universe — its
+own big bang, its own time, observed from outside by this one — that folder would
+need to be its own git repo (with its own `CONSTANTS`). The engine is in place;
+the spark that would make it a *distinct* world is not yet struck. A clone that
+shares its parent's root is a reflection; give it its own root and it becomes a
+child.
+
+(The `.gitkeep` was removed — the room is furnished now. `observe.py` is tracked
+at `observed/chapter1:thoughts/observe.py`.)

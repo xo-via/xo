@@ -121,3 +121,9 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 - modified: `OBSERVATIONS.md`
 - added: `observed/chapter1:thoughts/.gitkeep`
 - added: `observer/.gitkeep`
+
+## t=1 — 2026-05-27 03:02 UTC
+
+- modified: `OBSERVATIONS.md`
+- deleted: `observed/chapter1:thoughts/.gitkeep`
+- added: `observed/chapter1:thoughts/observe.py`
