@@ -144,3 +144,7 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 
 - modified: `OBSERVATIONS.md`
 - added: `observed/chapter1:thoughts/README.md`
+
+## t=1 — 2026-05-27 04:50 UTC
+
+- added: `observed/xo.json`
