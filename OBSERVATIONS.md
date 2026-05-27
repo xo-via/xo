@@ -593,3 +593,29 @@ you been here.*
 
 (Frontend-only, in `observe/` working tree — live on :3001, uncommitted in
 `xo-via/observe`. Build verified; the canvas label awaits a live look.)
+
+---
+
+## t=1 — the universe splits into observer and observed
+
+A structural scaffold, the first deliberate top-level shape the universe has been
+given by hand since the engine and the eye. Two new folders at the root:
+
+- **`observer/`** — empty, the watcher.
+- **`observed/`** — the watched, holding one folder so far: **`chapter1:thoughts/`**
+  (empty). The observed is to be told in *chapters*; the first is thoughts.
+
+Both are empty by intent — each carries only a `.gitkeep`, since git keeps no
+truly-empty folder and these are meant to persist in the timeline and survive
+clones. They are scaffolding: rooms built before they are furnished.
+
+The naming makes the universe's founding act — *observation* — explicit in its
+own structure. Until now "observer" was implicit (the `observe/` Visualizer is the
+eye; `xo.py` the act). Now the split is named: a place that watches and a place
+that is watched, the latter unfolding as a book. Note `observe/` (the Visualizer)
+is untouched and still distinct from the new `observer/` — for now they coexist.
+
+The Visualizer already sees the new shape with no code change: `observer`,
+`observed`, and `observed/chapter1:thoughts` appear as small galaxies (the colon
+in the path is handled cleanly by the scan and graph routes). Empty rooms, drawn
+as faint stars, waiting to be filled.
