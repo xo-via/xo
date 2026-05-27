@@ -148,3 +148,7 @@ What changed inside the universe, tick by tick. Maintained automatically by `obs
 ## t=1 — 2026-05-27 04:50 UTC
 
 - added: `observed/xo.json`
+
+## t=1 — 2026-05-27 13:12 UTC
+
+- modified: `observe`
