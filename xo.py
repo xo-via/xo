@@ -35,10 +35,11 @@ Signal — this universe as a node among universes (see SIGNAL.md):
     xo.py receive          pull and print new signals from other instances
     xo.py run [INTERVAL] [LIFESPAN] [FATE]
                            run as a live instance: emit + receive until lifespan ends
-    xo.py life             show this instance's programmed lifespan (if any)
+    xo.py life             show lifespan or whether xo.json is sealed
 """
 from __future__ import annotations
 
+import base64
 import datetime
 import hashlib
 import json
@@ -51,6 +52,8 @@ import subprocess
 import sys
 import time
 import uuid
+
+from cryptography.fernet import Fernet
 
 # The creator's identity. Every act of the universe is authored by Satori.
 AUTHOR_NAME = "Satori"
@@ -69,10 +72,13 @@ SEEN_FILE = ".xo-seen.json"  # how far we've read each peer (local, gitignored)
 SIGNAL_INTERVAL_SECONDS = int(os.environ.get("XO_SIGNAL_INTERVAL", "60"))
 
 # --- lifespan: a bounded life for a live instance -----------------------------
-# A `run` can be born with a programmed death. Until then it keeps emitting
-# signals like any live instance; when lifespan reaches zero it emits its fate
-# (evolve, decay, or restart), says bye, and stops — it does not linger.
-LIFE_FILE = ".xo-life.json"  # birth, expiry, fate — local, gitignored
+# A `run` with a programmed lifespan keeps emitting signals until time is up.
+# At lifespan=0 the process seals every emission into xo.json (encrypted dna +
+# footprint) and stops immediately — no extra work after death.
+LIFE_FILE = ".xo-life.json"  # active run clock — local, gitignored
+XO_JSON = "xo.json"          # sealed record: { "dna": "…", "footprint": "…" }
+KEY_FILE = ".xo-key"           # encryption key — local, gitignored
+KDF_SALT = b"xo-universe-v1"
 FATES = ("evolve", "decay", "restart", "random")
 
 # The universe's running record of what changed, tick by tick. Maintained by
@@ -608,9 +614,13 @@ def _push_with_retry(tries: int = 3) -> bool:
     return git("push", "origin", "HEAD").returncode == 0
 
 
-def emit(kind: str, body: str = "") -> int:
+def emit(kind: str, body: str = "", *, footprint: list[dict] | None = None) -> int:
     """Emit one signal: append it to this instance's log, commit, and push it to
-    the shared substrate so other instances can receive it."""
+    the shared substrate so other instances can receive it.
+
+    When `footprint` is passed (during `run`), the emission is also kept in
+    memory to be sealed into xo.json at lifespan end.
+    """
     iid = instance_id()
     os.makedirs(os.path.join(ROOT, SIGNALS_DIR), exist_ok=True)
     rel = f"{SIGNALS_DIR}/{iid}.jsonl"
@@ -621,6 +631,8 @@ def emit(kind: str, body: str = "") -> int:
         "body": body,
         "ts": int(time.time()),
     }
+    if footprint is not None:
+        footprint.append(dict(record))
     with open(os.path.join(ROOT, rel), "a") as f:
         f.write(json.dumps(record) + "\n")
 
@@ -691,7 +703,61 @@ def receive(announce: bool = True) -> list[dict]:
     return fresh
 
 
-# --- lifespan: birth, ticking down, and the three fates -----------------------
+# --- lifespan: birth, ticking down, seal into xo.json -------------------------
+
+def _fernet() -> Fernet:
+    """Key from XO_KEY env, else .xo-key (created on first seal if missing)."""
+    raw = os.environ.get("XO_KEY", "").strip()
+    path = os.path.join(ROOT, KEY_FILE)
+    if not raw and os.path.exists(path):
+        raw = open(path).read().strip()
+    if not raw:
+        raw = Fernet.generate_key().decode()
+        with open(path, "w") as f:
+            f.write(raw + "\n")
+    if len(raw) == 44 and raw.endswith("="):
+        return Fernet(raw.encode())
+    derived = hashlib.pbkdf2_hmac("sha256", raw.encode(), KDF_SALT, 480_000, dklen=32)
+    return Fernet(base64.urlsafe_b64encode(derived))
+
+
+def _encrypt_blob(data: dict | list) -> str:
+    return _fernet().encrypt(
+        json.dumps(data, separators=(",", ":")).encode()
+    ).decode()
+
+
+def seal_xo_json(dna: dict, footprint: list[dict]) -> None:
+    """Write the encrypted life record. Only `dna` and `footprint` are stored."""
+    out = {"dna": _encrypt_blob(dna), "footprint": _encrypt_blob(footprint)}
+    with open(os.path.join(ROOT, XO_JSON), "w") as f:
+        json.dump(out, f, indent=2)
+        f.write("\n")
+
+
+def _commit_xo_json(iid: str, generation: int) -> None:
+    """Best-effort: put the sealed xo.json on the substrate before we stop."""
+    git("add", XO_JSON, check=True)
+    git(
+        "-c", f"user.name={AUTHOR_NAME}",
+        "-c", f"user.email={AUTHOR_EMAIL}",
+        "commit", "--author", f"{AUTHOR_NAME} <{AUTHOR_EMAIL}>",
+        "-m", f"xo: {iid} gen={generation} sealed",
+        check=True,
+    )
+    if git("remote", "get-url", "origin").returncode == 0:
+        _push_with_retry()
+
+
+def is_sealed() -> bool:
+    path = os.path.join(ROOT, XO_JSON)
+    if not os.path.exists(path):
+        return False
+    try:
+        data = json.load(open(path))
+        return "dna" in data and "footprint" in data
+    except Exception:
+        return False
 
 def _resolve_fate(choice: str, iid: str) -> str:
     """Turn 'random' into a stable pick for this birth."""
@@ -736,12 +802,19 @@ def begin_life(iid: str, seconds: int, fate: str) -> dict:
     return record
 
 
-def finish_life(record: dict) -> None:
-    """Mark the instance dead in the local life record."""
-    record = dict(record)
-    record["died_ts"] = int(time.time())
-    record["tick_died"] = current_tick()
-    _save_life(record)
+def finish_life(record: dict) -> dict:
+    """Return dna for sealing — the instance's genome at death."""
+    return {
+        "id": record["id"],
+        "generation": record["generation"],
+        "fate": record["fate"],
+        "lifespan_seconds": record["lifespan_seconds"],
+        "born_ts": record["born_ts"],
+        "expires_ts": record["expires_ts"],
+        "tick_born": record["tick_born"],
+        "tick_died": current_tick(),
+        "died_ts": int(time.time()),
+    }
 
 
 def life_remaining(record: dict | None) -> int | None:
