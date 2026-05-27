@@ -8,3 +8,4 @@ __pycache__/
 # messages.)
 .xo-id
 .xo-seen.json
+.xo-life.json

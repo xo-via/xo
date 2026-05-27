@@ -33,11 +33,14 @@ Signal — this universe as a node among universes (see SIGNAL.md):
     xo.py id               print this instance's identity
     xo.py emit KIND [BODY] emit one signal to the shared substrate (commit + push)
     xo.py receive          pull and print new signals from other instances
-    xo.py run [INTERVAL]   run as a live instance: emit presence + receive, forever
+    xo.py run [INTERVAL] [LIFESPAN] [FATE]
+                           run as a live instance: emit + receive until lifespan ends
+    xo.py life             show this instance's programmed lifespan (if any)
 """
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -64,6 +67,13 @@ SIGNALS_DIR = "signals"
 ID_FILE = ".xo-id"          # this instance's name (per-clone, gitignored)
 SEEN_FILE = ".xo-seen.json"  # how far we've read each peer (local, gitignored)
 SIGNAL_INTERVAL_SECONDS = int(os.environ.get("XO_SIGNAL_INTERVAL", "60"))
+
+# --- lifespan: a bounded life for a live instance -----------------------------
+# A `run` can be born with a programmed death. Until then it keeps emitting
+# signals like any live instance; when lifespan reaches zero it emits its fate
+# (evolve, decay, or restart), says bye, and stops — it does not linger.
+LIFE_FILE = ".xo-life.json"  # birth, expiry, fate — local, gitignored
+FATES = ("evolve", "decay", "restart", "random")
 
 # The universe's running record of what changed, tick by tick. Maintained by
 # snapshot() after each observation so the history is legible without git.
@@ -113,6 +123,22 @@ def read_constants() -> dict[str, str]:
 
 def snapshot_duration_seconds() -> int:
     return int(read_constants()["SNAPSHOT_DURATION_SECONDS"])
+
+
+def lifespan_seconds() -> int:
+    """Programmed life for `run`, in seconds. 0 means live until interrupted."""
+    if os.environ.get("XO_LIFESPAN_SECONDS", "").strip().isdigit():
+        return int(os.environ["XO_LIFESPAN_SECONDS"])
+    return int(read_constants().get("LIFESPAN_SECONDS", "0"))
+
+
+def default_fate() -> str:
+    """What happens when lifespan ends."""
+    env = os.environ.get("XO_FATE", "").strip().lower()
+    if env in FATES:
+        return env
+    fate = read_constants().get("DEFAULT_FATE", "random").strip().lower()
+    return fate if fate in FATES else "random"
 
 
 # --- time ---------------------------------------------------------------------
@@ -665,13 +691,136 @@ def receive(announce: bool = True) -> list[dict]:
     return fresh
 
 
-def run() -> int:
-    """Run this universe as a live instance: announce arrival, then on every
-    interval emit a presence signal and receive everyone else's, until stopped.
-    This is the node that both emits and receives."""
+# --- lifespan: birth, ticking down, and the three fates -----------------------
+
+def _resolve_fate(choice: str, iid: str) -> str:
+    """Turn 'random' into a stable pick for this birth."""
+    if choice != "random":
+        return choice
+    h = hashlib.sha256(f"{iid}:{time.time()}".encode()).hexdigest()
+    return ("evolve", "decay", "restart")[int(h[:8], 16) % 3]
+
+
+def _load_life() -> dict | None:
+    path = os.path.join(ROOT, LIFE_FILE)
+    if not os.path.exists(path):
+        return None
+    try:
+        return json.load(open(path))
+    except Exception:
+        return None
+
+
+def _save_life(record: dict) -> None:
+    with open(os.path.join(ROOT, LIFE_FILE), "w") as f:
+        json.dump(record, f, indent=2)
+        f.write("\n")
+
+
+def begin_life(iid: str, seconds: int, fate: str) -> dict:
+    """Record this run's birth and when it must end."""
+    now = int(time.time())
+    resolved = _resolve_fate(fate, iid)
+    prev = _load_life() or {}
+    generation = int(prev.get("generation", 0)) + 1
+    record = {
+        "id": iid,
+        "born_ts": now,
+        "expires_ts": now + seconds if seconds > 0 else None,
+        "lifespan_seconds": seconds,
+        "fate": resolved,
+        "generation": generation,
+        "tick_born": current_tick(),
+    }
+    _save_life(record)
+    return record
+
+
+def finish_life(record: dict) -> None:
+    """Mark the instance dead in the local life record."""
+    record = dict(record)
+    record["died_ts"] = int(time.time())
+    record["tick_died"] = current_tick()
+    _save_life(record)
+
+
+def life_remaining(record: dict | None) -> int | None:
+    """Seconds until programmed death, or None if unbounded."""
+    if not record or not record.get("expires_ts"):
+        return None
+    return max(0, int(record["expires_ts"]) - int(time.time()))
+
+
+def _fate_body(fate: str, record: dict) -> str:
+    """What the terminal signal carries — enough for a successor to act."""
+    rem = life_remaining(record)
+    parts = [
+        f"fate={fate}",
+        f"gen={record.get('generation', 1)}",
+        f"t={current_tick()}",
+    ]
+    if rem is not None:
+        parts.append(f"remaining={rem}s")
+    return " ".join(parts)
+
+
+def show_life() -> int:
+    """Print the programmed lifespan for this instance, if any."""
+    record = _load_life()
     iid = instance_id()
-    print(f"instance {iid} is alive — emitting + receiving every "
-          f"{SIGNAL_INTERVAL_SECONDS}s. Ctrl-C to stop.")
+    if not record:
+        secs = lifespan_seconds()
+        if secs > 0:
+            print(f"instance {iid} has no active life record; "
+                  f"CONSTANTS lifespan is {secs}s (fate={default_fate()}).")
+        else:
+            print(f"instance {iid} has no programmed lifespan "
+                  f"(LIFESPAN_SECONDS=0 — lives until interrupted).")
+        return 0
+    rem = life_remaining(record)
+    fate = record.get("fate", "?")
+    gen = record.get("generation", "?")
+    if record.get("died_ts"):
+        print(f"instance {iid} gen={gen} died at t={record.get('tick_died')} "
+              f"(fate was {fate}).")
+        return 0
+    if rem is None:
+        print(f"instance {iid} gen={gen} is alive with no expiry.")
+        return 0
+    if rem == 0:
+        print(f"instance {iid} gen={gen} lifespan has elapsed (fate={fate}).")
+        return 0
+    print(f"instance {iid} gen={gen} — {rem}s remaining, fate={fate} at death.")
+    return 0
+
+
+def run(lifespan_override: int | None = None, fate_override: str | None = None) -> int:
+    """Run this universe as a live instance: announce arrival, then on every
+    interval emit a presence signal and receive everyone else's, until lifespan
+    ends or the process is interrupted.
+
+    When a lifespan is programmed (CONSTANTS, env, or CLI), the loop keeps
+    emitting until expiry, then emits the chosen fate (evolve / decay /
+    restart), says bye, and stops — it does not run past death.
+    """
+    iid = instance_id()
+    seconds = lifespan_override if lifespan_override is not None else lifespan_seconds()
+    fate = (fate_override or default_fate()).lower()
+    if fate not in FATES:
+        print(f"unknown fate {fate!r} — choose one of: {', '.join(FATES)}",
+              file=sys.stderr)
+        return 2
+
+    life = begin_life(iid, seconds, fate) if seconds > 0 else None
+    resolved_fate = life["fate"] if life else None
+
+    if seconds > 0:
+        print(f"instance {iid} is alive — emitting + receiving every "
+              f"{SIGNAL_INTERVAL_SECONDS}s for {seconds}s, then {resolved_fate}. "
+              f"Ctrl-C to stop early.")
+    else:
+        print(f"instance {iid} is alive — emitting + receiving every "
+              f"{SIGNAL_INTERVAL_SECONDS}s. Ctrl-C to stop.")
 
     stop = {"now": False}
     def _halt(*_a):
@@ -679,19 +828,41 @@ def run() -> int:
     signals_module.signal(signals_module.SIGINT, _halt)
     signals_module.signal(signals_module.SIGTERM, _halt)
 
-    emit("hello", f"{iid} online")
+    emit("hello", f"{iid} online gen={life['generation'] if life else 1}")
+    expired = False
     try:
         while not stop["now"]:
             receive(announce=True)
-            for _ in range(SIGNAL_INTERVAL_SECONDS):
+            rem = life_remaining(life)
+            if life and rem is not None and rem <= 0:
+                expired = True
+                break
+            wait = SIGNAL_INTERVAL_SECONDS
+            if rem is not None:
+                wait = min(wait, rem)
+            for _ in range(max(1, wait)):
                 if stop["now"]:
                     break
+                if life and life_remaining(life) == 0:
+                    expired = True
+                    break
                 time.sleep(1)
-            if not stop["now"]:
-                emit("alive", f"t={current_tick()}")
+            if stop["now"] or expired:
+                break
+            body = f"t={current_tick()}"
+            rem = life_remaining(life)
+            if rem is not None:
+                body += f" remaining={rem}s"
+            emit("alive", body)
     finally:
-        emit("bye", f"{iid} offline")
-        print(f"instance {iid} stopped.")
+        if expired and life:
+            emit(resolved_fate, _fate_body(resolved_fate, life))
+            finish_life(life)
+            emit("bye", f"{iid} {resolved_fate}")
+            print(f"instance {iid} lifespan ended — fate={resolved_fate}, stopped.")
+        else:
+            emit("bye", f"{iid} offline")
+            print(f"instance {iid} stopped.")
     return 0
 
 
@@ -736,9 +907,30 @@ def main(argv: list[str]) -> int:
         return 0
     if cmd == "run":
         global SIGNAL_INTERVAL_SECONDS
-        if len(argv) > 2 and argv[2].isdigit():
-            SIGNAL_INTERVAL_SECONDS = int(argv[2])
-        return run()
+        interval: int | None = None
+        life_secs: int | None = None
+        fate: str | None = None
+        args = argv[2:]
+        i = 0
+        while i < len(args):
+            a = args[i]
+            if a.isdigit() and interval is None:
+                interval = int(a)
+            elif a.isdigit() and life_secs is None:
+                life_secs = int(a)
+            elif a.lower() in FATES and fate is None:
+                fate = a.lower()
+            else:
+                print("usage: xo.py run [interval] [lifespan_seconds] [fate]",
+                      file=sys.stderr)
+                print(f"       fate is one of: {', '.join(FATES)}", file=sys.stderr)
+                return 2
+            i += 1
+        if interval is not None:
+            SIGNAL_INTERVAL_SECONDS = interval
+        return run(lifespan_override=life_secs, fate_override=fate)
+    if cmd == "life":
+        return show_life()
 
     # The default act of running xo.py with no command: begin the universe.
     start()

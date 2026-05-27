@@ -4,3 +4,9 @@
 
 # How long one tick lasts, in seconds. 600 = 10 minutes.
 SNAPSHOT_DURATION_SECONDS=60000
+
+# How long `xo.py run` lives, in seconds. 0 = until interrupted (no programmed death).
+LIFESPAN_SECONDS=0
+
+# When lifespan ends: evolve, decay, restart, or random (pick one at birth).
+DEFAULT_FATE=random
