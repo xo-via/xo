@@ -647,3 +647,23 @@ child.
 
 (The `.gitkeep` was removed — the room is furnished now. `observe.py` is tracked
 at `observed/chapter1:thoughts/observe.py`.)
+
+---
+
+## t=1 — the engine is documented from the inside
+
+Wrote a detailed **`observed/chapter1:thoughts/README.md`** for `observe.py`, the
+clone planted in the observed chapter. Having read the engine end to end, the
+README now covers all of it in one place: the derived-time model (big bang →
+ticks), `snapshot` and the changelog, the cron heartbeat, the lifecycle verbs
+(start/fetch/update/clone), time-travel and the freeze-while-detached rule, the
+two-layer confinement of the Claude session, the signal layer (id/emit/receive/
+run), and — newest and least-documented until now — the **lifespan → fate →
+encrypted `xo.json`** life cycle (born with a generation, ticks down, picks a
+fate, seals dna + footprint under Fernet, stops).
+
+It also states plainly what the clone *is*: an engine that acts on whatever git
+repo encloses it, so here it reflects the outer universe rather than being its
+own — with the recipe to make it a distinct child universe (`git init` +
+`CONSTANTS` + a t=0 commit). The observed chapter now has both an engine and the
+words that explain it.
