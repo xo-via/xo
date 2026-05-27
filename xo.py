@@ -825,22 +825,22 @@ def life_remaining(record: dict | None) -> int | None:
 
 
 def _fate_body(fate: str, record: dict) -> str:
-    """What the terminal signal carries — enough for a successor to act."""
-    rem = life_remaining(record)
+    """Terminal marker body (sealed in footprint, not emitted to git at death)."""
     parts = [
         f"fate={fate}",
         f"gen={record.get('generation', 1)}",
         f"t={current_tick()}",
     ]
-    if rem is not None:
-        parts.append(f"remaining={rem}s")
     return " ".join(parts)
 
 
 def show_life() -> int:
-    """Print the programmed lifespan for this instance, if any."""
-    record = _load_life()
+    """Print lifespan status or whether this instance has been sealed."""
     iid = instance_id()
+    if is_sealed():
+        print(f"instance {iid} is sealed — xo.json holds encrypted dna + footprint.")
+        return 0
+    record = _load_life()
     if not record:
         secs = lifespan_seconds()
         if secs > 0:
@@ -868,13 +868,11 @@ def show_life() -> int:
 
 
 def run(lifespan_override: int | None = None, fate_override: str | None = None) -> int:
-    """Run this universe as a live instance: announce arrival, then on every
-    interval emit a presence signal and receive everyone else's, until lifespan
-    ends or the process is interrupted.
+    """Run this universe as a live instance: emit and receive until lifespan ends.
 
-    When a lifespan is programmed (CONSTANTS, env, or CLI), the loop keeps
-    emitting until expiry, then emits the chosen fate (evolve / decay /
-    restart), says bye, and stops — it does not run past death.
+    With a programmed lifespan, every emission is tracked. When lifespan hits
+    zero the instance seals dna + footprint into encrypted xo.json and stops
+    immediately — it does not emit or receive after death.
     """
     iid = instance_id()
     seconds = lifespan_override if lifespan_override is not None else lifespan_seconds()
@@ -886,10 +884,11 @@ def run(lifespan_override: int | None = None, fate_override: str | None = None) 
 
     life = begin_life(iid, seconds, fate) if seconds > 0 else None
     resolved_fate = life["fate"] if life else None
+    footprint: list[dict] = []
 
     if seconds > 0:
         print(f"instance {iid} is alive — emitting + receiving every "
-              f"{SIGNAL_INTERVAL_SECONDS}s for {seconds}s, then {resolved_fate}. "
+              f"{SIGNAL_INTERVAL_SECONDS}s for {seconds}s, then seals xo.json. "
               f"Ctrl-C to stop early.")
     else:
         print(f"instance {iid} is alive — emitting + receiving every "
@@ -901,10 +900,15 @@ def run(lifespan_override: int | None = None, fate_override: str | None = None) 
     signals_module.signal(signals_module.SIGINT, _halt)
     signals_module.signal(signals_module.SIGTERM, _halt)
 
-    emit("hello", f"{iid} online gen={life['generation'] if life else 1}")
+    emit("hello", f"{iid} online gen={life['generation'] if life else 1}",
+         footprint=footprint if life else None)
     expired = False
     try:
         while not stop["now"]:
+            rem = life_remaining(life)
+            if life and rem is not None and rem <= 0:
+                expired = True
+                break
             receive(announce=True)
             rem = life_remaining(life)
             if life and rem is not None and rem <= 0:
@@ -926,16 +930,28 @@ def run(lifespan_override: int | None = None, fate_override: str | None = None) 
             rem = life_remaining(life)
             if rem is not None:
                 body += f" remaining={rem}s"
-            emit("alive", body)
+            emit("alive", body, footprint=footprint)
     finally:
         if expired and life:
-            emit(resolved_fate, _fate_body(resolved_fate, life))
-            finish_life(life)
-            emit("bye", f"{iid} {resolved_fate}")
-            print(f"instance {iid} lifespan ended — fate={resolved_fate}, stopped.")
-        else:
-            emit("bye", f"{iid} offline")
-            print(f"instance {iid} stopped.")
+            footprint.append({
+                "from": iid,
+                "t": current_tick(),
+                "kind": resolved_fate,
+                "body": _fate_body(resolved_fate, life),
+                "ts": int(time.time()),
+            })
+            dna = finish_life(life)
+            seal_xo_json(dna, footprint)
+            try:
+                _commit_xo_json(iid, life["generation"])
+            except subprocess.CalledProcessError as e:
+                print(f"xo.json sealed locally; commit failed: {e}", file=sys.stderr)
+            if os.path.exists(os.path.join(ROOT, LIFE_FILE)):
+                os.remove(os.path.join(ROOT, LIFE_FILE))
+            print(f"instance {iid} lifespan reached 0 — xo.json sealed, stopping.")
+            return 0
+        emit("bye", f"{iid} offline", footprint=footprint if life else None)
+        print(f"instance {iid} stopped.")
     return 0
 
 
