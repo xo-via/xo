@@ -2,3 +2,7 @@
 	path = observe
 	url = https://github.com/xo-via/observe.git
 	branch = main
+[submodule "observed/chapter1:thoughts"]
+	path = observed/chapter1:thoughts
+	url = https://github.com/xo-via/chapter1-thoughts.git
+	branch = main
