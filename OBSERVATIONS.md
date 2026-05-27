@@ -528,3 +528,43 @@ the Visualizer while a session runs and you can see the watcher go round.
 (Frontend-only, in the `observe/` submodule working tree — live on :3001, still
 uncommitted in `xo-via/observe`, like the rest of the stack. Canvas visuals
 await a live look; the data path and build are verified.)
+
+---
+
+## t=1 — a new analogy: each folder a galaxy, the whole universe a graph
+
+The Visualizer gained a second, now-default view that reframes the whole model.
+Before: one folder at a time, its entries packed into a single cluster. Now: the
+**entire universe at once** — every folder is a **galaxy** (its direct files the
+particles drifting around its core), and the galaxies are arranged by **how they
+link to each other**.
+
+- **Links are derived cross-references.** A new `app/api/galaxies` route walks
+  the whole tree (skipping `node_modules`/`.git`/etc.), and draws an edge from
+  project A to project B when A's files *mention B by name*. To avoid matching
+  plain English, only **hyphenated project names** (`xo-os`, `xo-cowork-api`, …)
+  count as link targets, and each mention is attributed to its nearest project
+  ancestor. Result: a clean ~**87-galaxy, 22-edge** graph — e.g. `xo-phone-os →
+  xo-os`, `xo-swarm → xo-cowork`, `xo-cowork-api → xo-cowork`. The xo-* projects
+  finally show their kinship; generic folders float as unlinked galaxies.
+- **Layout is a force graph** (`Galaxies.tsx`): repulsion spreads galaxies,
+  cross-reference springs pull linked projects together, weak parent-springs keep
+  a folder's children nearby, gravity + damping keep it framed. A project and its
+  subfolders share a hue, so each region reads as one constellation. No d3-force
+  here, so the simulation is hand-written (and carefully damped + speed-clamped
+  for stability).
+- **Navigation joins the two views.** A `galaxies | folder` toggle sits under the
+  XO mark; drag to pan, scroll to zoom, and **click a galaxy to drop into the
+  classic explorer at that folder** (the old single-folder view, with its
+  timeline and session-orbits, is still there). So the macro view (the cosmos of
+  folders) and the micro view (one folder's particles) are now two scales of the
+  same map.
+
+This is the closest the universe has come to its founding image — *"a folder as a
+universe… the graph of every folder drawn forward through time."* The thoughts in
+`observe/thoughts/` are no longer a flat list; they're a constellation wired by
+what mentions what.
+
+(Frontend-only, in the `observe/` submodule working tree — live on :3001, still
+uncommitted in `xo-via/observe`. Build + data verified (87 galaxies / 22 links);
+the canvas force-layout awaits a live look, as there's no headless browser here.)
